@@ -123,7 +123,9 @@ func newGRPCSender(addr string) *grpcSender {
 }
 
 func (g *grpcSender) clone() requestSender {
-	return newGRPCSender(g.addr)
+	// copies the client: if it was used it will share a connection
+	cloned := *g
+	return &cloned
 }
 
 func (g *grpcSender) send(req *sleepymemory.SleepRequest) error {
@@ -150,7 +152,13 @@ func main() {
 	concurrent := flag.Int("concurrent", 1, "Number of concurrent client goroutines")
 	sleep := flag.Duration("sleep", 0, "Time for the server to sleep handling a request")
 	waste := flag.Int("waste", 0, "Bytes of memory the server should waste while handling a request")
+	shareGRPC := flag.Bool("shareGRPC", false, "If set, the gRPC goroutines will share a single client")
 	flag.Parse()
+
+	req := &sleepymemory.SleepRequest{
+		SleepDuration: ptypes.DurationProto(*sleep),
+		WasteBytes:    int64(*waste),
+	}
 
 	var sender requestSender
 	if *httpTarget != "" {
@@ -159,13 +167,16 @@ func main() {
 	} else if *grpcTarget != "" {
 		log.Printf("sending gRPC requests to %s ...", *grpcTarget)
 		sender = newGRPCSender(*grpcTarget)
+		if *shareGRPC {
+			// make a request to create the client before we clone it so it will be shared
+			log.Printf("sharing a single gRPC connection ...")
+			err := sender.send(req)
+			if err != nil {
+				panic(err)
+			}
+		}
 	} else {
 		panic("specify --httpTarget or --grpcTarget")
-	}
-
-	req := &sleepymemory.SleepRequest{
-		SleepDuration: ptypes.DurationProto(*sleep),
-		WasteBytes:    int64(*waste),
 	}
 
 	log.Printf("sending requests for %s using %d client goroutines ...",
