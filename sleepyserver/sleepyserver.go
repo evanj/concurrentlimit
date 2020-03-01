@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -37,6 +38,22 @@ func (s *server) rawRootHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func humanBytes(bytes uint64) string {
+	megabytes := float64(bytes) / float64(1024*1024)
+	return fmt.Sprintf("%.1f", megabytes)
+}
+
+func (s *server) memstatsHandler(w http.ResponseWriter, r *http.Request) {
+	stats := &runtime.MemStats{}
+	runtime.ReadMemStats(stats)
+
+	w.Header().Set("Content-Type", "text/plain;charset=utf-8")
+	fmt.Fprintf(w, "total bytes of memory obtained from the OS Sys=%d %s\n",
+		stats.Sys, humanBytes(stats.Sys))
+	fmt.Fprintf(w, "bytes of allocated heap objects HeapAlloc=%d %s\n",
+		stats.HeapAlloc, humanBytes(stats.HeapAlloc))
 }
 
 func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) error {
@@ -137,6 +154,7 @@ func main() {
 
 	s := &server{}
 	http.HandleFunc("/", s.rawRootHandler)
+	http.HandleFunc("/stats", s.memstatsHandler)
 	log.Printf("listening on http://%s ...", *httpAddr)
 	go func() {
 		err := http.ListenAndServe(*httpAddr, nil)
