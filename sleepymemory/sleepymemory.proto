@@ -8,19 +8,13 @@ option go_package = "github.com/evanj/concurrentlimit/sleepymemory";
 
 message SleepRequest {
   // The duration the request will sleep.
-  google.protobuf.Duration sleep_time = 1;
+  google.protobuf.Duration sleep_duration = 1;
 
   // Bytes of memory that will be allocated before sleeping to simulate requests that use lots of memory.
-  int64 created = 2;
+  int64 waste_bytes = 2;
 }
 
-message SleepResponse {
-  // The duration the request will sleep.
-  google.protobuf.Duration sleep_time = 1;
-
-  // Bytes of memory that will be allocated before sleeping to simulate requests that use lots of memory.
-  int64 created = 2;
-}
+message SleepResponse {}
 
 // Sleeper will sleep and waste memory to test concurrent requests and memory limits.
 service Sleeper {

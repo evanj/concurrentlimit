@@ -4,7 +4,7 @@ PROTOC:=$(BUILD_DIR)/bin/protoc
 PROTOC_GEN_GO:=$(BUILD_DIR)/protoc-gen-go
 
 sleepymemory/sleepymemory.pb.go: sleepymemory/sleepymemory.proto $(PROTOC) $(PROTOC_GEN_GO)
-	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=paths=source_relative:. $<
+	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=plugins=grpc,paths=source_relative:. $<
 
 # download protoc to a temporary tools directory
 $(PROTOC): buildtools/getprotoc.go | $(BUILD_DIR)
