@@ -31,6 +31,5 @@ if [ -n "${CHANGED}" ]; then
     exit 10
 fi
 
-# TODO: Find a CircleCI image with docker installed?
 # check that the container builds correctly
-# docker build .
+docker build .
