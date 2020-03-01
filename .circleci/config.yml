@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build:
+  test:
     docker:
       - image: golang:1.14.0-buster
     steps:
@@ -10,3 +10,14 @@ jobs:
       - run:
           name: run tests
           command: ./circleci.sh
+
+  test_docker_image:
+    docker:
+      - image: cimg/base:edge
+    steps:
+      - checkout
+      # Allow access to docker commands: https://circleci.com/docs/2.0/building-docker-images/
+      - setup_remote_docker
+      - run:
+          name: verify that the Dockerfile works
+          command: docker build .

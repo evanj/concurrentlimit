@@ -30,6 +30,3 @@ if [ -n "${CHANGED}" ]; then
     echo "$CHANGED" > /dev/stderr
     exit 10
 fi
-
-# check that the container builds correctly
-docker build .
