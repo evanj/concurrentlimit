@@ -30,7 +30,3 @@ if [ -n "${CHANGED}" ]; then
     echo "$CHANGED" > /dev/stderr
     exit 10
 fi
-
-# TODO: Find a CircleCI image with docker installed?
-# check that the container builds correctly
-# docker build .
