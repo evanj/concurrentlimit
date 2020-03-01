@@ -25,8 +25,6 @@ go run ./loadclient/main.go --httpTarget=http://localhost:8080/ --concurrent=80 
 go run ./loadclient/main.go --grpcTarget=localhost:8081 --concurrent=80 --sleep=3s --waste=1048576 --duration=2m
 ```
 
-
-
 This reliably blows up the server very quickly. Adding the concurrent rate limiter --concurrentRequests=40 fixes it.
 
 
@@ -51,3 +49,7 @@ With HTTP and a docker memory limit of 128 MiB, on my machine 3000 concurrent co
 
 Using a concurrent request limit does NOT solve the problem, even with --concurrentRequests=40: There are simply too many connections and too much goroutine/connection overhead. To fix this, we need to reject new connections using --concurrentConnections=80.
 
+
+## gRPC MaxConcurrentStreams
+
+This limits the number of concurrent streams *per-client connection*, so this doesn't fix overload by itself. For example, setting it to 40, and using the "high memory" client above still blows through the limit. With the `--shareGRPC` client, this will protect it. With this option, the server communicates the limit back to the client, which means the client will block and slow down its rate of requests (back-pressure). It is still useful, but does not protect the server's resources appropriately from "worst case" scenarios.

@@ -226,6 +226,7 @@ func main() {
 	grpcAddr := flag.String("grpcAddr", "localhost:8081", "Address to listen for gRPC requests")
 	concurrentRequests := flag.Int("concurrentRequests", 0, "Limits the number of concurrent requests")
 	concurrentConnections := flag.Int("concurrentConnections", 0, "Limits the number of concurrent connections")
+	grpcConcurrentStreams := flag.Int("grpcConcurrentStreams", 0, "Limits the number of concurrent connections")
 	flag.Parse()
 
 	s := &server{concurrentMaxLogger{}, &nilLimiter{}}
@@ -263,7 +264,12 @@ func main() {
 		grpcListener = netutil.LimitListener(grpcListener, *concurrentConnections)
 	}
 
-	grpcServer := grpc.NewServer()
+	options := []grpc.ServerOption{}
+	if *grpcConcurrentStreams > 0 {
+		log.Printf("setting grpc MaxConcurrentStreams=%d", *grpcConcurrentStreams)
+		options = append(options, grpc.MaxConcurrentStreams(uint32(*grpcConcurrentStreams)))
+	}
+	grpcServer := grpc.NewServer(options...)
 	sleepymemory.RegisterSleeperServer(grpcServer, s)
 	err = grpcServer.Serve(grpcListener)
 	if err != nil {
