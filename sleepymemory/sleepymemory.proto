@@ -14,7 +14,10 @@ message SleepRequest {
   int64 waste_bytes = 2;
 }
 
-message SleepResponse {}
+message SleepResponse {
+  // The value is ignored but exists to prevent garbage collection freeing the waste slice early.
+  int64 ignored = 1;
+}
 
 // Sleeper will sleep and waste memory to test concurrent requests and memory limits.
 service Sleeper {
