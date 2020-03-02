@@ -40,6 +40,9 @@ func NewServer(
 	return NewServerWithInterceptors(addr, requestLimit, connectionLimit, nil, options...)
 }
 
+// NewServerWithInterceptors is a version of NewServer that permits customizing the interceptors.
+// The passed in interceptor will be called after the operation limiter permits the request. See
+// NewServer's documentation for the remaining details.
 func NewServerWithInterceptors(
 	addr string, requestLimit int, connectionLimit int, unaryInterceptor grpc.UnaryServerInterceptor,
 	options ...grpc.ServerOption,
@@ -87,8 +90,7 @@ func UnaryLimitInterceptor(limiter concurrentlimit.Limiter, next grpc.UnaryServe
 
 		if next != nil {
 			return next(ctx, req, info, handler)
-		} else {
-			return handler(ctx, req)
 		}
+		return handler(ctx, req)
 	}
 }

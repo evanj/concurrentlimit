@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/netutil"
 )
 
+// ErrLimited is returned by Limiter when the concurrent operation limit is exceeded.
 var ErrLimited = errors.New("exceeded limit of concurrent operations")
 
 const httpIdleTimeout = time.Minute
@@ -29,7 +30,7 @@ type Limiter interface {
 	Start() (func(), error)
 }
 
-// NoLimit() returns a Limiter that permits an unlimited number of operations.
+// NoLimit returns a Limiter that permits an unlimited number of operations.
 func NoLimit() Limiter {
 	return nil
 }
