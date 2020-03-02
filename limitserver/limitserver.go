@@ -197,13 +197,13 @@ func main() {
 
 	log.Printf("listening for gRPC on grpcAddr=%s concurrentRequests=%d concurrentConnections=%d ...",
 		*grpcAddr, *concurrentRequests, *concurrentConnections)
-	limitedGRPCServer, err := grpclimit.NewServer(*grpcAddr, *concurrentRequests, *concurrentConnections)
+	grpcServer, err := grpclimit.NewServer(*grpcAddr, *concurrentRequests)
 	if err != nil {
 		panic(err)
 	}
 
-	sleepymemory.RegisterSleeperServer(limitedGRPCServer.Server, s)
-	err = limitedGRPCServer.Serve()
+	sleepymemory.RegisterSleeperServer(grpcServer, s)
+	err = grpclimit.Serve(grpcServer, *grpcAddr, *concurrentConnections)
 	if err != nil {
 		panic(err)
 	}

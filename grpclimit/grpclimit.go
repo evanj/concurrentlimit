@@ -14,52 +14,31 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// LimitedServer contains a grpc.Server and a net.Listener configured to limit concurrent work to
-// prevent running out of memory in overload situations.
-type LimitedServer struct {
-	Server   *grpc.Server
-	Listener net.Listener
-}
-
-// Serve is a convenience function that grpc.Server.Serve with the contained net.Listener.
-func (l *LimitedServer) Serve() error {
-	return l.Server.Serve(l.Listener)
-}
-
 // NewServer creates a grpc.Server and net.Listener that supports a limited number of concurrent
-// requests and connections. It sets the MaxConcurrentStreams option to concurrentRequests, which
-// will cause requests to block on the client if a single client sends too many requests.
+// requests. It sets the MaxConcurrentStreams option to the same value, which will cause
+// requests to block on the client if a single client sends too many requests. You should also use
+// Serve() with this server to protect against too many idle connections.
 //
 // NOTE: options must not contain any interceptors, since this function relies on adding our
 // own interceptor to limit the requests. Use NewServerWithInterceptors if you need interceptors.
 //
 // TODO: Implement stream interceptors
 func NewServer(
-	addr string, requestLimit int, connectionLimit int, options ...grpc.ServerOption,
-) (*LimitedServer, error) {
-	return NewServerWithInterceptors(addr, requestLimit, connectionLimit, nil, options...)
+	addr string, requestLimit int, options ...grpc.ServerOption,
+) (*grpc.Server, error) {
+	return NewServerWithInterceptors(addr, requestLimit, nil, options...)
 }
 
 // NewServerWithInterceptors is a version of NewServer that permits customizing the interceptors.
 // The passed in interceptor will be called after the operation limiter permits the request. See
 // NewServer's documentation for the remaining details.
 func NewServerWithInterceptors(
-	addr string, requestLimit int, connectionLimit int, unaryInterceptor grpc.UnaryServerInterceptor,
+	addr string, requestLimit int, unaryInterceptor grpc.UnaryServerInterceptor,
 	options ...grpc.ServerOption,
-) (*LimitedServer, error) {
+) (*grpc.Server, error) {
 	if requestLimit <= 0 {
 		return nil, fmt.Errorf("NewServer: requestLimit=%d must be > 0", requestLimit)
 	}
-	if connectionLimit < requestLimit {
-		return nil, fmt.Errorf("NewServer: connectionLimit=%d must be >= requestLimit=%d",
-			connectionLimit, requestLimit)
-	}
-
-	unlimitedListener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-	limitedListener := netutil.LimitListener(unlimitedListener, connectionLimit)
 
 	requestLimiter := concurrentlimit.New(requestLimit)
 	limitedUnaryInterceptorChain := UnaryLimitInterceptor(requestLimiter, unaryInterceptor)
@@ -68,7 +47,23 @@ func NewServerWithInterceptors(
 	options = append(options, grpc.UnaryInterceptor(limitedUnaryInterceptorChain))
 	server := grpc.NewServer(options...)
 
-	return &LimitedServer{server, limitedListener}, nil
+	return server, nil
+}
+
+// Serve listens on addr but only accepts a maximum of connectionLimit conenctions at one
+// time to limit memory usage. New connections will block in the kernel. This returns when
+// grpc.Server.Serve would normally return.
+func Serve(server *grpc.Server, addr string, connectionLimit int) error {
+	if connectionLimit <= 0 {
+		return fmt.Errorf("NewServer: connectionLimit=%d must be >= 0", connectionLimit)
+	}
+
+	unlimitedListener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	limitedListener := netutil.LimitListener(unlimitedListener, connectionLimit)
+	return server.Serve(limitedListener)
 }
 
 // UnaryLimitInterceptor returns a grpc.UnaryServerInterceptor that uses limiter to limit the

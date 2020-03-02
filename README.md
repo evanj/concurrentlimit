@@ -5,8 +5,10 @@ Each connection and request that a server is processing takes memory. If you hav
 
 ## Running the server with limited memory and Docker
 
+```
 docker build . --tag=sleepyserver
 docker run -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 --rm -ti --memory=128m --memory-swap=128m sleepyserver
+```
 
 ## To monitor in another terminal:
 
