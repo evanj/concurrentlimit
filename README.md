@@ -15,7 +15,7 @@ docker run -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 --rm -ti --memory=128m 
 
 ## High memory per request
 
-This client makes requests that use 1 MiB/request.
+This client makes requests that use 1 MiB/request. Using 80 concurrent clients reliably blows up the server very quickly. Adding the concurrent rate limiter --concurrentRequests=40 fixes it.
 
 ```
 ulimit -n 10000
@@ -24,8 +24,6 @@ go run ./loadclient/main.go --httpTarget=http://localhost:8080/ --concurrent=80 
 # gRPC
 go run ./loadclient/main.go --grpcTarget=localhost:8081 --concurrent=80 --sleep=3s --waste=1048576 --duration=2m
 ```
-
-This reliably blows up the server very quickly. Adding the concurrent rate limiter --concurrentRequests=40 fixes it.
 
 
 ## Low memory per request (lots of idle requests)

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -13,10 +12,9 @@ import (
 	"time"
 
 	"github.com/evanj/concurrentlimit"
+	"github.com/evanj/concurrentlimit/grpclimit"
 	"github.com/evanj/concurrentlimit/sleepymemory"
 	"github.com/golang/protobuf/ptypes"
-	"golang.org/x/net/netutil"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,8 +23,7 @@ const sleepHTTPKey = "sleep"
 const wasteHTTPKey = "waste"
 
 type server struct {
-	logger  concurrentMaxLogger
-	limiter concurrentlimit.Limiter
+	logger concurrentMaxLogger
 }
 
 func (s *server) rawRootHandler(w http.ResponseWriter, r *http.Request) {
@@ -114,17 +111,11 @@ func (s *server) Sleep(ctx context.Context, request *sleepymemory.SleepRequest) 
 }
 
 func (s *server) sleepImplementation(ctx context.Context, request *sleepymemory.SleepRequest) (*sleepymemory.SleepResponse, error) {
-	// limit concurrent requests
-	end, err := s.limiter.Start()
-	if err != nil {
-		return nil, err
-	}
-	defer end()
-
+	// log max concurrent requests
 	defer s.logger.start()()
 
+	// waste memory and touch each page to ensure it is actually allocated
 	wasteSlice := make([]byte, request.WasteBytes)
-	// touch each page in the slice to ensure it is actually allocated
 	const pageSize = 4096
 	for i := 0; i < len(wasteSlice); i += pageSize {
 		wasteSlice[i] = 0xff
@@ -183,52 +174,36 @@ func main() {
 	grpcAddr := flag.String("grpcAddr", "localhost:8081", "Address to listen for gRPC requests")
 	concurrentRequests := flag.Int("concurrentRequests", 0, "Limits the number of concurrent requests")
 	concurrentConnections := flag.Int("concurrentConnections", 0, "Limits the number of concurrent connections")
-	grpcConcurrentStreams := flag.Int("grpcConcurrentStreams", 0, "Limits the number of concurrent connections")
 	flag.Parse()
 
-	s := &server{concurrentMaxLogger{}, concurrentlimit.NoLimit()}
-	if *concurrentRequests > 0 {
-		log.Printf("limiting the server to %d concurrent requests", *concurrentRequests)
-		s.limiter = concurrentlimit.New(*concurrentRequests)
-	}
+	s := &server{concurrentMaxLogger{}}
 
-	http.HandleFunc("/", s.rawRootHandler)
-	http.HandleFunc("/stats", s.memstatsHandler)
-	log.Printf("listening for HTTP on http://%s ...", *httpAddr)
-	httpListener, err := net.Listen("tcp", *httpAddr)
-	if err != nil {
-		panic(err)
-	}
-	if *concurrentConnections > 0 {
-		log.Printf("limiting the HTTP server to %d concurrent connections", *concurrentConnections)
-		httpListener = netutil.LimitListener(httpListener, *concurrentConnections)
+	mux := &http.ServeMux{}
+	mux.HandleFunc("/", s.rawRootHandler)
+	mux.HandleFunc("/stats", s.memstatsHandler)
+	log.Printf("listening for HTTP on http://%s concurrentRequests=%d concurrentConnections=%d ...",
+		*httpAddr, *concurrentRequests, *concurrentConnections)
+	httpServer := &http.Server{
+		Addr:    *httpAddr,
+		Handler: mux,
 	}
 
 	go func() {
-		err := http.Serve(httpListener, nil)
+		err := concurrentlimit.ListenAndServe(httpServer, *concurrentRequests, *concurrentConnections)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	log.Printf("listening for gRPC on grpcAddr=%s ...", *grpcAddr)
-	grpcListener, err := net.Listen("tcp", *grpcAddr)
+	log.Printf("listening for gRPC on grpcAddr=%s concurrentRequests=%d concurrentConnections=%d ...",
+		*grpcAddr, *concurrentRequests, *concurrentConnections)
+	limitedGRPCServer, err := grpclimit.NewServer(*grpcAddr, *concurrentRequests, *concurrentConnections)
 	if err != nil {
 		panic(err)
 	}
-	if *concurrentConnections > 0 {
-		log.Printf("limiting the gRPC server to %d concurrent connections", *concurrentConnections)
-		grpcListener = netutil.LimitListener(grpcListener, *concurrentConnections)
-	}
 
-	options := []grpc.ServerOption{}
-	if *grpcConcurrentStreams > 0 {
-		log.Printf("setting grpc MaxConcurrentStreams=%d", *grpcConcurrentStreams)
-		options = append(options, grpc.MaxConcurrentStreams(uint32(*grpcConcurrentStreams)))
-	}
-	grpcServer := grpc.NewServer(options...)
-	sleepymemory.RegisterSleeperServer(grpcServer, s)
-	err = grpcServer.Serve(grpcListener)
+	sleepymemory.RegisterSleeperServer(limitedGRPCServer.Server, s)
+	err = limitedGRPCServer.Serve()
 	if err != nil {
 		panic(err)
 	}
