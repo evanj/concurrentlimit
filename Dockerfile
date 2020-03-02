@@ -10,7 +10,7 @@ FROM go_dep_downloader AS go_builder
 COPY . .
 RUN go install --mod=readonly -v ./sleepyserver
 
-FROM gcr.io/distroless/base-debian10:nonroot AS subscriber-race
+FROM gcr.io/distroless/base-debian10:nonroot AS sleepyserver
 COPY --from=go_builder /go/bin/sleepyserver /
 ENTRYPOINT ["/sleepyserver"]
 CMD ["--httpAddr=:8080", "--grpcAddr=:8081"]
