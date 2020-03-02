@@ -3,6 +3,7 @@ package concurrentlimit
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -85,7 +86,8 @@ func (s *syncLimiter) end() {
 // Both requestLimit and connectionLimit must be > 0, and connectionLimit must be
 // >= requestLimit. A reasonable defalt is to set the connectionLimit to double the request limit,
 // which assumes that processing each request requires more memory than a raw connection, and that
-// keeping some idle connections is useful.
+// keeping some idle connections is useful. This modifies srv.Handler with another handler that
+// implements the limit.
 //
 // This also sets the server's ReadHeaderTimeout and IdleTimeout to a reasonable default if they
 // are not set, which is an attempt to avoid
@@ -121,6 +123,10 @@ func limitListenerForServer(srv *http.Server, requestLimit int, connectionLimit 
 		srv.IdleTimeout = httpIdleTimeout
 	}
 
+	// configure the request limit
+	limiter := New(requestLimit)
+	srv.Handler = Handler(limiter, srv.Handler)
+
 	return limitedListener, nil
 }
 
@@ -135,4 +141,26 @@ func ListenAndServeTLS(
 	}
 
 	return srv.ServeTLS(limitedListener, certFile, keyFile)
+}
+
+// Handler returns an http.Handler that uses limiter to only permit a limited number of concurrent
+// requests to be processed.
+func Handler(limiter Limiter, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		end, err := limiter.Start()
+		if err == ErrLimited {
+			http.Error(w, err.Error(), http.StatusTooManyRequests)
+			return
+		}
+		if err != nil {
+			// this should not happen, but if it does return a very generic 500 error
+			log.Println("concurrentlimit.Handler BUG: unexpected error: " + err.Error())
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		// permitted: start the operation and end it
+		handler.ServeHTTP(w, r)
+		end()
+	})
 }
