@@ -14,6 +14,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ResourceExhausted seems slightly better than Unavailable, since
+// is wrong. Other examples:
+//
+// https://github.com/grpc/grpc/blob/master/doc/statuscodes.md: "Server temporarily out of
+// resources (e.g., Flow-control resource limits reached)"
+//
+// https://cloud.google.com/apis/design/errors: "Either out of resource quota or reaching rate
+// limiting"
+const rateLimitStatus = codes.ResourceExhausted
+
 // NewServer creates a grpc.Server and net.Listener that supports a limited number of concurrent
 // requests. It sets the MaxConcurrentStreams option to the same value, which will cause
 // requests to block on the client if a single client sends too many requests. You should also use
@@ -67,7 +77,7 @@ func Serve(server *grpc.Server, addr string, connectionLimit int) error {
 }
 
 // UnaryLimitInterceptor returns a grpc.UnaryServerInterceptor that uses limiter to limit the
-// concurrent requests. It will return codes.ResourcesExceeded if the limiter rejects an operation.
+// concurrent requests. It will return codes.ResourceExhausted if the limiter rejects an operation.
 // If next is not nil, it will be called to chain the request handlers. If it is nil, this will
 // invoke the operation directly.
 func UnaryLimitInterceptor(limiter concurrentlimit.Limiter, next grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
@@ -76,7 +86,7 @@ func UnaryLimitInterceptor(limiter concurrentlimit.Limiter, next grpc.UnaryServe
 	) (interface{}, error) {
 		end, err := limiter.Start()
 		if err == concurrentlimit.ErrLimited {
-			return nil, status.Error(codes.ResourceExhausted, err.Error())
+			return nil, status.Error(rateLimitStatus, err.Error())
 		}
 		if err != nil {
 			return nil, err
