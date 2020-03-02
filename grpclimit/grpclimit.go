@@ -50,7 +50,7 @@ func NewServerWithInterceptors(
 	return server, nil
 }
 
-// ServeWithLimit listens on addr but only accepts a maximum of connectionLimit conenctions at one
+// Serve listens on addr but only accepts a maximum of connectionLimit conenctions at one
 // time to limit memory usage. New connections will block in the kernel. This returns when
 // grpc.Server.Serve would normally return.
 func Serve(server *grpc.Server, addr string, connectionLimit int) error {
