@@ -51,7 +51,7 @@ func NewServerWithInterceptors(
 	}
 
 	requestLimiter := concurrentlimit.New(requestLimit)
-	limitedUnaryInterceptorChain := UnaryLimitInterceptor(requestLimiter, unaryInterceptor)
+	limitedUnaryInterceptorChain := UnaryInterceptor(requestLimiter, unaryInterceptor)
 
 	options = append(options, grpc.MaxConcurrentStreams(uint32(requestLimit)))
 	options = append(options, grpc.UnaryInterceptor(limitedUnaryInterceptorChain))
@@ -76,11 +76,11 @@ func Serve(server *grpc.Server, addr string, connectionLimit int) error {
 	return server.Serve(limitedListener)
 }
 
-// UnaryLimitInterceptor returns a grpc.UnaryServerInterceptor that uses limiter to limit the
+// UnaryInterceptor returns a grpc.UnaryServerInterceptor that uses limiter to limit the
 // concurrent requests. It will return codes.ResourceExhausted if the limiter rejects an operation.
 // If next is not nil, it will be called to chain the request handlers. If it is nil, this will
 // invoke the operation directly.
-func UnaryLimitInterceptor(limiter concurrentlimit.Limiter, next grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+func UnaryInterceptor(limiter concurrentlimit.Limiter, next grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 	) (interface{}, error) {
