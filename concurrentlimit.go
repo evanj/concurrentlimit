@@ -13,7 +13,7 @@ import (
 )
 
 // ErrLimited is returned by Limiter when the concurrent operation limit is exceeded.
-var ErrLimited = errors.New("exceeded limit of concurrent operations")
+var ErrLimited = errors.New("exceeded max concurrent operations limit")
 
 const httpIdleTimeout = time.Minute
 const httpReadHeaderTimeout = time.Minute
