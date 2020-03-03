@@ -39,12 +39,12 @@ sendLoop:
 		}
 
 		err := sender.send(req)
-		if err == errRetry {
-			// TODO: exponential backoff?
-			time.Sleep(time.Second)
-			continue
-		}
 		if err != nil {
+			if err == errRetry || err == context.DeadlineExceeded {
+				// TODO: exponential backoff?
+				time.Sleep(time.Second)
+				continue
+			}
 			panic(err)
 		}
 

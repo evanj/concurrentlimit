@@ -15,7 +15,11 @@ import (
 // ErrLimited is returned by Limiter when the concurrent operation limit is exceeded.
 var ErrLimited = errors.New("exceeded max concurrent operations limit")
 
-const httpIdleTimeout = time.Minute
+// This should be set longer than what upstream clients/load balancers will use to avoid
+// a "connection race" where the client sends a request at the same time the server is closing
+// it. This can cause errors that may not be retriable. As an example see:
+// https://blog.percy.io/tuning-nginx-behind-google-cloud-platform-http-s-load-balancer-305982ddb340?gi=14a65def6148
+const httpIdleTimeout = 10 * time.Minute
 const httpReadHeaderTimeout = time.Minute
 
 // Limiter limits the number of concurrent operations that can be processed.
@@ -90,7 +94,7 @@ func (s *syncLimiter) end() {
 // implements the limit.
 //
 // This also sets the server's ReadHeaderTimeout and IdleTimeout to a reasonable default if they
-// are not set, which is an attempt to avoid
+// are not set, which is an attempt to avoid idle or slow connections using all connections.
 func ListenAndServe(srv *http.Server, requestLimit int, connectionLimit int) error {
 	limitedListener, err := limitListenerForServer(srv, requestLimit, connectionLimit)
 	if err != nil {
@@ -108,13 +112,8 @@ func limitListenerForServer(srv *http.Server, requestLimit int, connectionLimit 
 		return nil, fmt.Errorf("ListenAndServe: connectionLimit=%d must be >= requestLimit=%d",
 			connectionLimit, requestLimit)
 	}
-	unlimitedListener, err := net.Listen("tcp", srv.Addr)
-	if err != nil {
-		return nil, err
-	}
-	limitedListener := netutil.LimitListener(unlimitedListener, connectionLimit)
 
-	// these are also sane defaults for robustness
+	// prevent idle/slow connections using all available connections. See also:
 	// https://blog.gopheracademy.com/advent-2016/exposing-go-on-the-internet/
 	if srv.ReadHeaderTimeout <= 0 {
 		srv.ReadHeaderTimeout = httpReadHeaderTimeout
@@ -127,7 +126,7 @@ func limitListenerForServer(srv *http.Server, requestLimit int, connectionLimit 
 	limiter := New(requestLimit)
 	srv.Handler = Handler(limiter, srv.Handler)
 
-	return limitedListener, nil
+	return Listen("tcp", srv.Addr, connectionLimit)
 }
 
 // ListenAndServeTLS listens for HTTP requests with a limited number of concurrent requests
@@ -141,6 +140,15 @@ func ListenAndServeTLS(
 	}
 
 	return srv.ServeTLS(limitedListener, certFile, keyFile)
+}
+
+// Listen wraps net.Listen with netutil.LimitListener to limit concurrent connections.
+func Listen(network string, address string, connectionLimit int) (net.Listener, error) {
+	unlimitedListener, err := net.Listen(network, address)
+	if err != nil {
+		return nil, err
+	}
+	return netutil.LimitListener(unlimitedListener, connectionLimit), nil
 }
 
 // Handler returns an http.Handler that uses limiter to only permit a limited number of concurrent

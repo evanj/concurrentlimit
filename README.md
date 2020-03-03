@@ -1,6 +1,26 @@
 # Concurrent request/connection limits for Go servers
 
-Each connection and request that a server is processing takes memory. If you have too many concurrent connections or requests, your server can run out of memory and crash. To make servers robust, it is a good idea to limit the amount of concurrent work that it accepts. The code in this repository tests how much memory HTTP and gRPC connections/requests take, and allows you to limit them.
+Each connection and request that a server is processing takes memory. If you have too many, your server will run out of memory and crash. To make servers robust, you must limit the amount of concurrent work that it accepts, so it at least serves some requests during overload scenarios, rather than serving none. This package provides some APIs to make this easier, and some tools I used to test this.
+
+For a really robust server, you should do the following, in rough priority order:
+
+* Limit concurrent executing requests to limit memory.
+* Limit concurrent connections to limit memory. In particular, Go gRPC connections are very expensive (~180 kiB versus about ~40 kiB per HTTP server connection).
+* Close connections/requests that are too slow or idle, since they are wasting resources.
+* Make clients well-behaved so they reduce their request rate on error, or stop entirely (exponential backoff, back pressure, circuit breakers). The gRPC `MaxConcurrentStreams` setting can help here.
+
+
+# Possible future improvements to this code
+
+* *gRPC streaming requests*: The `grpclimit` package currently only limits unary requests.
+
+* *Faster implementation*: This uses a single sync.Mutex. It works well for ~10000 requests/second on 8 CPUs, but can be a bottleneck for extremely low-latency requests or high-CPU servers. Some sort of sharded counter, or something crazy like https://github.com/jonhoo/drwmutex would be more efficient.
+
+* *Blocking/queuing*: This package currently rejects requests when over the limit. It probably would be better to queue requests for some period of time. This can cause fewer retries when there are short overload bursts. It also means that poorly behaved clients that retry too quickly will retry less often, which may ultimately be better. There are also choices here about LIFO versus FIFO, drop head versus drop tail. See my previous investigation: https://www.evanjones.ca/prevent-server-overload.html
+
+* *Multiple buckets of limits*: Health checks, statistics, or other cheap requests should have much higher limits than expensive requests. It is possible this should be configurable.
+
+* *Aggressively close idle connections on overload*: This package sets idle timeouts on connections to attempt to avoid lots of idle clients starving busy clients. It would be nice if this policy triggered on overload. If we are at the connection limit, we should aggressively close idle connections. If we are not, then we should not care.
 
 
 ## Running the server with limited memory and Docker

@@ -5,12 +5,12 @@ package grpclimit
 import (
 	"context"
 	"fmt"
-	"net"
+	"time"
 
 	"github.com/evanj/concurrentlimit"
-	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -23,6 +23,9 @@ import (
 // https://cloud.google.com/apis/design/errors: "Either out of resource quota or reaching rate
 // limiting"
 const rateLimitStatus = codes.ResourceExhausted
+
+const idleConnectionTimeout = 10 * time.Minute
+const keepaliveTimeout = time.Minute
 
 // NewServer creates a grpc.Server and net.Listener that supports a limited number of concurrent
 // requests. It sets the MaxConcurrentStreams option to the same value, which will cause
@@ -55,6 +58,10 @@ func NewServerWithInterceptors(
 
 	options = append(options, grpc.MaxConcurrentStreams(uint32(requestLimit)))
 	options = append(options, grpc.UnaryInterceptor(limitedUnaryInterceptorChain))
+	options = append(options, grpc.KeepaliveParams(keepalive.ServerParameters{
+		MaxConnectionIdle: idleConnectionTimeout,
+		Time:              keepaliveTimeout,
+	}))
 	server := grpc.NewServer(options...)
 
 	return server, nil
@@ -68,12 +75,11 @@ func Serve(server *grpc.Server, addr string, connectionLimit int) error {
 		return fmt.Errorf("NewServer: connectionLimit=%d must be >= 0", connectionLimit)
 	}
 
-	unlimitedListener, err := net.Listen("tcp", addr)
+	listener, err := concurrentlimit.Listen("tcp", addr, connectionLimit)
 	if err != nil {
 		return err
 	}
-	limitedListener := netutil.LimitListener(unlimitedListener, connectionLimit)
-	return server.Serve(limitedListener)
+	return server.Serve(listener)
 }
 
 // UnaryInterceptor returns a grpc.UnaryServerInterceptor that uses limiter to limit the
