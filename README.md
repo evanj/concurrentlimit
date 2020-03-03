@@ -5,7 +5,7 @@ Each connection and request that a server is processing takes memory. If you hav
 For a really robust server, you should do the following, in rough priority order:
 
 * Limit concurrent executing requests to limit memory.
-* Limit concurrent connections to limit memory. In particular, Go gRPC connections are very expensive (~180 kiB versus about ~40 kiB per HTTP server connection).
+* Limit concurrent connections to limit memory. In particular, Go gRPC connections are very expensive (~230 kiB versus about ~40 kiB per HTTP server connection, particularly when connections are opening/closing rapidly).
 * Close connections/requests that are too slow or idle, since they are wasting resources.
 * Make clients well-behaved so they reduce their request rate on error, or stop entirely (exponential backoff, back pressure, circuit breakers). The gRPC `MaxConcurrentStreams` setting can help here.
 

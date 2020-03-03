@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"strconv"
 	"sync"
@@ -192,8 +193,17 @@ func main() {
 		s.limiter = concurrentlimit.New(*concurrentRequests)
 	}
 
-	http.HandleFunc("/", s.rawRootHandler)
-	http.HandleFunc("/stats", s.memstatsHandler)
+	mux := &http.ServeMux{}
+	mux.HandleFunc("/", s.rawRootHandler)
+	mux.HandleFunc("/stats", s.memstatsHandler)
+
+	// copied from http/pprof
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	log.Printf("listening for HTTP on http://%s ...", *httpAddr)
 	httpListener, err := net.Listen("tcp", *httpAddr)
 	if err != nil {
@@ -205,7 +215,7 @@ func main() {
 	}
 
 	go func() {
-		err := http.Serve(httpListener, nil)
+		err := http.Serve(httpListener, mux)
 		if err != nil {
 			panic(err)
 		}

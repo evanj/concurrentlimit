@@ -24,7 +24,9 @@ import (
 // limiting"
 const rateLimitStatus = codes.ResourceExhausted
 
-const idleConnectionTimeout = 10 * time.Minute
+// Set to the value recommended by the Google Cloud Load Balancer:
+// https://cloud.google.com/load-balancing/docs/https#timeouts_and_retries
+const idleConnectionTimeout = 620 * time.Second
 const keepaliveTimeout = time.Minute
 
 // NewServer creates a grpc.Server and net.Listener that supports a limited number of concurrent

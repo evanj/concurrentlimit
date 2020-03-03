@@ -17,9 +17,9 @@ var ErrLimited = errors.New("exceeded max concurrent operations limit")
 
 // This should be set longer than what upstream clients/load balancers will use to avoid
 // a "connection race" where the client sends a request at the same time the server is closing
-// it. This can cause errors that may not be retriable. As an example see:
-// https://blog.percy.io/tuning-nginx-behind-google-cloud-platform-http-s-load-balancer-305982ddb340?gi=14a65def6148
-const httpIdleTimeout = 10 * time.Minute
+// it. This can cause errors that may not be retriable. This is the value recommended by Google
+// Cloud: https://cloud.google.com/load-balancing/docs/https#timeouts_and_retries
+const httpIdleTimeout = 620 * time.Second
 const httpReadHeaderTimeout = time.Minute
 
 // Limiter limits the number of concurrent operations that can be processed.
