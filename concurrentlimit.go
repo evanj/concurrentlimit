@@ -33,14 +33,14 @@ type Limiter interface {
 
 // NoLimit returns a Limiter that permits an unlimited number of operations.
 func NoLimit() Limiter {
-	return nil
+	return &nilLimiter{}
 }
 
 type nilLimiter struct{}
 
 func doNothing() {}
 
-func (n *nilLimiter) start() (func(), error) {
+func (n *nilLimiter) Start() (func(), error) {
 	return doNothing, nil
 }
 
