@@ -73,6 +73,8 @@ func (s *syncLimiter) Start() (func(), error) {
 	}
 	s.current = next
 
+	// TODO: Return a closure that can only be called once? More expensive but harder to abuse.
+	// Maybe think about a "debug mode" that enables this sort of check?
 	return s.end, nil
 }
 
