@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -26,8 +27,9 @@ const sleepHTTPKey = "sleep"
 const wasteHTTPKey = "waste"
 
 type server struct {
-	logger  concurrentMaxLogger
-	limiter concurrentlimit.Limiter
+	logger         concurrentMaxLogger
+	limiter        concurrentlimit.Limiter
+	logAllRequests bool
 }
 
 func (s *server) rawRootHandler(w http.ResponseWriter, r *http.Request) {
@@ -124,6 +126,11 @@ func (s *server) sleepImplementation(ctx context.Context, request *sleepymemory.
 
 	defer s.logger.start()()
 
+	if s.logAllRequests {
+		md, ok := metadata.FromIncomingContext(ctx)
+		log.Printf("starting Sleep request=%s md=%v ok=%v", request.String(), md, ok)
+	}
+
 	wasteSlice := make([]byte, request.WasteBytes)
 	// touch each page in the slice to ensure it is actually allocated
 	const pageSize = 4096
@@ -185,9 +192,10 @@ func main() {
 	concurrentRequests := flag.Int("concurrentRequests", 0, "Limits the number of concurrent requests")
 	concurrentConnections := flag.Int("concurrentConnections", 0, "Limits the number of concurrent connections")
 	grpcConcurrentStreams := flag.Int("grpcConcurrentStreams", 0, "Limits the number of concurrent connections")
+	logAll := flag.Bool("logAll", false, "Log all requests")
 	flag.Parse()
 
-	s := &server{concurrentMaxLogger{}, concurrentlimit.NoLimit()}
+	s := &server{concurrentMaxLogger{}, concurrentlimit.NoLimit(), *logAll}
 	if *concurrentRequests > 0 {
 		log.Printf("limiting the server to %d concurrent requests", *concurrentRequests)
 		s.limiter = concurrentlimit.New(*concurrentRequests)
