@@ -14,9 +14,9 @@ import (
 	"github.com/evanj/concurrentlimit"
 	"github.com/evanj/concurrentlimit/grpclimit"
 	"github.com/evanj/concurrentlimit/sleepymemory"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 const sleepHTTPKey = "sleep"
@@ -67,19 +67,20 @@ func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) error {
 
 	sleepValue := r.FormValue(sleepHTTPKey)
 	if sleepValue != "" {
-		// parse as integer seconds first
+		var sleepDuration time.Duration
+		// try to parse as integer seconds first
 		seconds, err := strconv.Atoi(sleepValue)
-		if err != nil {
+		if err == nil {
+			// SUCCESS!
+			sleepDuration = time.Duration(seconds) * time.Second
+		} else {
 			// fall back to parsing duration, and return that error if it fails
-			duration, err := time.ParseDuration(sleepValue)
+			sleepDuration, err = time.ParseDuration(sleepValue)
 			if err != nil {
 				return err
 			}
-
-			req.SleepDuration = ptypes.DurationProto(duration)
-		} else {
-			req.SleepDuration = ptypes.DurationProto(time.Duration(seconds) * time.Second)
 		}
+		req.SleepDuration = durationpb.New(sleepDuration)
 	}
 
 	wasteValue := r.FormValue(wasteHTTPKey)
@@ -123,11 +124,10 @@ func (s *server) sleepImplementation(ctx context.Context, request *sleepymemory.
 
 	var duration time.Duration
 	if request.SleepDuration != nil {
-		var err error
-		duration, err = ptypes.Duration(request.SleepDuration)
-		if err != nil {
+		if err := request.SleepDuration.CheckValid(); err != nil {
 			return nil, err
 		}
+		duration = request.SleepDuration.AsDuration()
 	}
 	// TODO: use ctx for cancellation
 	time.Sleep(duration)

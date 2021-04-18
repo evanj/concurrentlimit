@@ -63,7 +63,9 @@ func TestGRPC(t *testing.T) {
 			// need separate clients per goroutine otherwise the client back pressure prevents rejection
 			// Sleep for at least 2 seconds due to gRPC's default connection backoff:
 			// https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md
-			conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
+			dialCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			conn, err := grpc.DialContext(dialCtx, grpcAddr, grpc.WithInsecure(), grpc.WithBlock())
+			cancel()
 			if err != nil {
 				log.Println("Dial:", err)
 				close(responses)

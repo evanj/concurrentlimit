@@ -17,8 +17,9 @@ go vet ./...
 
 # cd /tmp to not change go.mod/go.sum for golint TODO: Use tools.go:
 # https://github.com/golang/go/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module
-(cd /tmp && go get golang.org/x/lint/golint)
+(cd /tmp && go get golang.org/x/lint/golint honnef.co/go/tools/cmd/staticcheck)
 golint --set_exit_status ./...
+staticcheck ./...
 
 diff -u <(echo -n) <(gofmt -d .)
 
