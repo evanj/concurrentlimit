@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/evanj/concurrentlimit/sleepymemory"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 const grpcConnectTimeout = 30 * time.Second
@@ -130,8 +130,9 @@ func (g *grpcSender) clone() requestSender {
 
 func (g *grpcSender) send(req *sleepymemory.SleepRequest) error {
 	if g.client == nil {
-		conn, err := grpc.Dial(g.addr, grpc.WithInsecure(),
-			grpc.WithTimeout(grpcConnectTimeout), grpc.WithBlock())
+		dialCtx, cancel := context.WithTimeout(context.Background(), grpcConnectTimeout)
+		conn, err := grpc.DialContext(dialCtx, g.addr, grpc.WithInsecure(), grpc.WithBlock())
+		cancel()
 		if err != nil {
 			return err
 		}
@@ -156,7 +157,7 @@ func main() {
 	flag.Parse()
 
 	req := &sleepymemory.SleepRequest{
-		SleepDuration: ptypes.DurationProto(*sleep),
+		SleepDuration: durationpb.New(*sleep),
 		WasteBytes:    int64(*waste),
 	}
 
