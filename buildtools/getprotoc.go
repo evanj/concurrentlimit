@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const version = "3.11.4"
+const version = "3.15.8"
 const protocURLTemplate = "https://github.com/protocolbuffers/protobuf/releases/download/v%s/protoc-%s-%s-x86_64.zip"
 const protocZipPath = "bin/protoc"
 const includeZipPath = "include/"

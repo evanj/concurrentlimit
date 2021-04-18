@@ -1,0 +1,10 @@
+# https://docs.docker.com/engine/reference/builder/#dockerignore-file
+**/*_test.go
+.circleci
+.dockerignore
+.git
+build
+circleci.sh
+Dockerfile
+LICENSE
+README.md
