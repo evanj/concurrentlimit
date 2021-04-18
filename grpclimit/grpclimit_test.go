@@ -51,7 +51,7 @@ func TestGRPC(t *testing.T) {
 	go func() {
 		err = Serve(grpcServer, grpcAddr, permitted*2)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 	defer grpcServer.GracefulStop()
@@ -67,7 +67,7 @@ func TestGRPC(t *testing.T) {
 			if err != nil {
 				log.Println("Dial:", err)
 				close(responses)
-				t.Fatal(err)
+				t.Error(err)
 			}
 			defer conn.Close()
 			client := sleepymemory.NewSleeperClient(conn)

@@ -44,7 +44,7 @@ func TestLimiterRace(t *testing.T) {
 
 			end, err := limiter.Start()
 			if err != nil {
-				t.Fatal("Limiter must allow the first N calls")
+				t.Error("Limiter must allow the first N calls", err)
 			}
 			endFuncs <- end
 		}()
@@ -110,7 +110,7 @@ func TestHTTP(t *testing.T) {
 		// must allow more connections than requests, otherwise it waits for the connection to close
 		err := ListenAndServe(testServer, permitted, permitted*2)
 		if err != http.ErrServerClosed {
-			t.Fatal("expected HTTP server to be shutdown")
+			t.Error("expected HTTP server to be shutdown; err:", err)
 		}
 	}()
 	defer testServer.Shutdown(context.Background())
@@ -129,14 +129,14 @@ func TestHTTP(t *testing.T) {
 						continue
 					}
 					close(responses)
-					t.Fatal(err)
+					t.Error(err)
 
 				}
 				resp.Body.Close()
 				responses <- resp.StatusCode
 				return
 			}
-			t.Fatal("failed after too many attempts")
+			t.Error("failed after too many attempts")
 		}()
 	}
 
