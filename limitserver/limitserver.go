@@ -23,6 +23,7 @@ const sleepHTTPKey = "sleep"
 const wasteHTTPKey = "waste"
 
 type server struct {
+	sleepymemory.UnimplementedSleeperServer
 	logger concurrentMaxLogger
 }
 
@@ -176,7 +177,7 @@ func main() {
 	concurrentConnections := flag.Int("concurrentConnections", 0, "Limits the number of concurrent connections")
 	flag.Parse()
 
-	s := &server{concurrentMaxLogger{}}
+	s := &server{logger: concurrentMaxLogger{}}
 
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/", s.rawRootHandler)

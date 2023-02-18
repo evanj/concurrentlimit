@@ -15,6 +15,7 @@ import (
 )
 
 type blockSleeper struct {
+	sleepymemory.UnimplementedSleeperServer
 	unblock chan struct{}
 }
 
@@ -46,7 +47,7 @@ func TestGRPC(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	handler := &blockSleeper{make(chan struct{})}
+	handler := &blockSleeper{unblock: make(chan struct{})}
 	sleepymemory.RegisterSleeperServer(grpcServer, handler)
 	go func() {
 		err = Serve(grpcServer, grpcAddr, permitted*2)
