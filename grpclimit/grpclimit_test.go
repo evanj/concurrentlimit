@@ -11,6 +11,7 @@ import (
 	"github.com/evanj/concurrentlimit/sleepymemory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -65,7 +66,9 @@ func TestGRPC(t *testing.T) {
 			// Sleep for at least 2 seconds due to gRPC's default connection backoff:
 			// https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md
 			dialCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			conn, err := grpc.DialContext(dialCtx, grpcAddr, grpc.WithInsecure(), grpc.WithBlock())
+			conn, err := grpc.DialContext(dialCtx, grpcAddr,
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithBlock())
 			cancel()
 			if err != nil {
 				log.Println("Dial:", err)
