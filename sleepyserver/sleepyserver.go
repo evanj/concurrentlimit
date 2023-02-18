@@ -27,9 +27,18 @@ const sleepHTTPKey = "sleep"
 const wasteHTTPKey = "waste"
 
 type server struct {
+	sleepymemory.UnimplementedSleeperServer
 	logger         concurrentMaxLogger
 	limiter        concurrentlimit.Limiter
 	logAllRequests bool
+}
+
+func newServer(limiter concurrentlimit.Limiter, logAllRequests bool) *server {
+	return &server{
+		logger:         concurrentMaxLogger{},
+		limiter:        limiter,
+		logAllRequests: logAllRequests,
+	}
 }
 
 func (s *server) rawRootHandler(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +204,7 @@ func main() {
 	logAll := flag.Bool("logAll", false, "Log all requests")
 	flag.Parse()
 
-	s := &server{concurrentMaxLogger{}, concurrentlimit.NoLimit(), *logAll}
+	s := newServer(concurrentlimit.NoLimit(), *logAll)
 	if *concurrentRequests > 0 {
 		log.Printf("limiting the server to %d concurrent requests", *concurrentRequests)
 		s.limiter = concurrentlimit.New(*concurrentRequests)

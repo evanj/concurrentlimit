@@ -1,3 +1,4 @@
+// Package concurrentlimit limits the number of concurrent requests to a Go HTTP or gRPC server.
 package concurrentlimit
 
 import (

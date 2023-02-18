@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/evanj/concurrentlimit/sleepymemory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -95,7 +95,7 @@ func (h *httpSender) send(req *sleepymemory.SleepRequest) error {
 	defer resp.Body.Close()
 
 	// drain the body so the connection can be reused by keep alives
-	_, err = io.Copy(ioutil.Discard, resp.Body)
+	_, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,9 @@ func (g *grpcSender) clone() requestSender {
 func (g *grpcSender) send(req *sleepymemory.SleepRequest) error {
 	if g.client == nil {
 		dialCtx, cancel := context.WithTimeout(context.Background(), grpcConnectTimeout)
-		conn, err := grpc.DialContext(dialCtx, g.addr, grpc.WithInsecure(), grpc.WithBlock())
+		conn, err := grpc.DialContext(dialCtx, g.addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
 		cancel()
 		if err != nil {
 			return err
